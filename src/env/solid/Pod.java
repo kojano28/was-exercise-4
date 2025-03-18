@@ -1,5 +1,7 @@
 package solid;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -79,8 +81,36 @@ public class Pod extends Artifact {
    */
     @OPERATION
     public void publishData(String containerName, String fileName, Object[] data) {
-        log("2. Implement the method publishData()");
+        // Construct the resource URL: podURL/containerName/fileName
+        String base = podURL.endsWith("/") ? podURL : podURL + "/";
+        String resourceURL = base + containerName + "/" + fileName;
+        log("Publishing data to: " + resourceURL);
+    
+        // Convert the data array to a string
+        String payload = createStringFromArray(data);
+    
+        try {
+            HttpURLConnection con = (HttpURLConnection) new URL(resourceURL).openConnection();
+            con.setDoOutput(true);
+            con.setRequestMethod("PUT");
+            con.setRequestProperty("Content-Type", "text/plain");
+    
+            // Write the payload to the output stream
+            try (OutputStream os = con.getOutputStream()) {
+                os.write(payload.getBytes("UTF-8"));
+            }
+    
+            int responseCode = con.getResponseCode();
+            if (responseCode == HttpURLConnection.HTTP_CREATED || responseCode == HttpURLConnection.HTTP_OK) {
+                log("Data published successfully to: " + resourceURL);
+            } else {
+                log("Failed to publish data. HTTP response code: " + responseCode);
+            }
+        } catch (Exception e) {
+            log("Error publishing data: " + e.getMessage());
+        }
     }
+  
 
   /**
    * CArtAgO operation for reading data of a .txt file in a Linked Data Platform container of the Solid pod
@@ -102,23 +132,32 @@ public class Pod extends Artifact {
    * @return An array whose elements are the data read from the .txt file
    */
     public Object[] readData(String containerName, String fileName) {
-        log("3. Implement the method readData(). Currently, the method returns mock data");
+        // Construct the resource URL inline: podURL/containerName/fileName
+        String base = podURL.endsWith("/") ? podURL : podURL + "/";
+        String resourceURL = base + containerName + "/" + fileName;
+        log("Reading data from: " + resourceURL);
 
-        // Remove the following mock responses once you have implemented the method
-        switch(fileName) {
-            case "watchlist.txt":
-                Object[] mockWatchlist = new Object[]{"The Matrix", "Inception", "Avengers: Endgame"};
-                return mockWatchlist;
-            case "sleep.txt":
-                Object[] mockSleepData = new Object[]{"6", "7", "5"};
-                return mockSleepData;
-            case "trail.txt":
-                Object[] mockTrailData = new Object[]{"3", "5.5", "5.5"};
-                return mockTrailData; 
-            default:
-                return new Object[0];
+        StringBuilder response = new StringBuilder();
+        try {
+            HttpURLConnection con = (HttpURLConnection) new URL(resourceURL).openConnection();
+            con.setRequestMethod("GET");
+            con.setRequestProperty("Accept", "text/plain");
+
+            if (con.getResponseCode() == HttpURLConnection.HTTP_OK) {
+                try (BufferedReader in = new BufferedReader(
+                        new InputStreamReader(con.getInputStream(), "UTF-8"))) {
+                    String line;
+                    while ((line = in.readLine()) != null) {
+                        response.append(line).append("\n");
+                    }
+                }
+            } else {
+                log("Failed to read data. HTTP response code: " + con.getResponseCode());
+            }
+        } catch (Exception e) {
+            log("Error reading data: " + e.getMessage());
         }
-
+        return createArrayFromString(response.toString());
     }
 
   /**
