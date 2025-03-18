@@ -1,5 +1,9 @@
 package solid;
 
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+
 import cartago.Artifact;
 import cartago.OPERATION;
 import cartago.OpFeedbackParam;
@@ -29,7 +33,41 @@ public class Pod extends Artifact {
    */
     @OPERATION
     public void createContainer(String containerName) {
-        log("1. Implement the method createContainer()");
+        // Construct the container URL: ensure podURL ends with "/" then append containerName + "/"
+        String base = podURL.endsWith("/") ? podURL : podURL + "/";
+        String containerURL = base + containerName + "/";
+        log("Creating container at: " + containerURL);
+
+        try {
+            HttpURLConnection con = (HttpURLConnection) new URL(containerURL).openConnection();
+            con.setRequestMethod("HEAD");
+            if (con.getResponseCode() == HttpURLConnection.HTTP_OK) {
+                log("Container exists: " + containerURL);
+                return;
+            }
+        } catch (Exception e) {
+            log("Container not found; creating it now.");
+        }
+        
+
+        // Create the container with a PUT request (using an empty turtle payload)
+        try {
+            HttpURLConnection putCon = (HttpURLConnection) new URL(containerURL).openConnection();
+            putCon.setDoOutput(true);
+            putCon.setRequestMethod("PUT");
+            putCon.setRequestProperty("Content-Type", "text/turtle");
+            // with a empty payload.
+            try (OutputStream os = putCon.getOutputStream()) { }
+            int code = putCon.getResponseCode();
+            if (code == HttpURLConnection.HTTP_CREATED || code == HttpURLConnection.HTTP_OK) {
+                log("Container created successfully at: " + containerURL);
+            } else {
+                log("Failed to create container. HTTP response code: " + code);
+            }
+        } catch (Exception e) {
+            log("Error during container creation: " + e.getMessage());
+        }
+        
     }
 
   /**
